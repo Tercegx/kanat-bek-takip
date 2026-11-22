@@ -1,0 +1,40 @@
+name: Kanat-Bek Takip
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kanat-bek-takip
+  cancel-in-progress: false
+
+jobs:
+  tara:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Maçları tara
+        run: python kanat_bek_takip.py
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Durumu kaydet
+        run: |
+          git config user.name "takip-bot"
+          git config user.email "takip-bot@users.noreply.github.com"
+          git add durum.json
+          git diff --cached --quiet || (git commit -m "durum güncellendi" && git push)
