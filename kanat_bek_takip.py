@@ -103,16 +103,35 @@ class Engellendi(Exception):
     pass
 
 
+SOFA_ADRESLERI = ["https://www.sofascore.com/api/v1", "https://api.sofascore.com/api/v1"]
+SOFA_BASLIK = {"Referer": "https://www.sofascore.com/", "Origin": "https://www.sofascore.com",
+               "Accept": "application/json, text/plain, */*"}
+_calisan_adres = None
+
+
 def getir(yol):
-    """SofaScore API'den JSON getirir."""
-    time.sleep(SOFA_BEKLE_SN)
-    r = _http.get(f"{API}{yol}", timeout=20, **_KW)
-    if r.status_code == 404:
-        return None
-    if r.status_code in (403, 429):
-        raise Engellendi(f"{r.status_code} - {yol}")
-    r.raise_for_status()
-    return r.json()
+    """SofaScore API'den JSON getirir; engellenmeyen adresi bulup onu kullanır."""
+    global _calisan_adres
+    adresler = [_calisan_adres] if _calisan_adres else SOFA_ADRESLERI
+    son_kod = None
+    for adres in adresler:
+        time.sleep(SOFA_BEKLE_SN)
+        kw = dict(_KW)
+        kw["headers"] = {**kw.get("headers", {}), **SOFA_BASLIK}
+        r = _http.get(f"{adres}{yol}", timeout=20, **kw)
+        if r.status_code == 404:
+            _calisan_adres = adres
+            return None
+        if r.status_code in (403, 429):
+            print(f"{adres} -> {r.status_code}")
+            son_kod = r.status_code
+            continue
+        r.raise_for_status()
+        if _calisan_adres != adres:
+            print(f"Çalışan SofaScore adresi: {adres}")
+        _calisan_adres = adres
+        return r.json()
+    raise Engellendi(f"{son_kod} - {yol}")
 
 
 _tm_engelli = False
